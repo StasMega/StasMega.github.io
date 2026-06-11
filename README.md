@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rich Editor</title>
+    <!-- Подключаем стили редактора -->
     <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
     <script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+    <!-- Telegram Web App SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body { font-family: sans-serif; margin: 0; padding: 10px; background-color: var(--tg-theme-bg-color); color: var(--tg-theme-text-color); }
@@ -25,7 +27,9 @@
 
     <script>
         const tg = window.Telegram.WebApp;
-        tg.expand(); 
+        tg.expand(); // Разворачиваем на весь экран
+
+        // Инициализируем редактор
         const easyMDE = new EasyMDE({
             element: document.getElementById('markdown-editor'),
             placeholder: "Напиши что-нибудь классное с #заголовками и |таблицами|...",
@@ -34,12 +38,14 @@
             toolbar: ["bold", "italic", "heading", "|", "quote", "unordered-list", "table", "|", "preview", "side-by-side"]
         });
 
+        // Кнопка отправки
         document.getElementById('send-btn').addEventListener('click', () => {
             const content = easyMDE.value();
             if (!content.trim()) {
                 alert("Сначала напиши что-нибудь!");
                 return;
             }
+            // Отправляем данные обратно боту
             tg.sendData(content);
         });
     </script>
