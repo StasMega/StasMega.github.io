@@ -4,19 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Native Rich Editor</title>
-    <!-- Telegram SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Иконки -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     
     <style>
-        /* Цвета из темы самого Telegram */
         :root {
             --bg: var(--tg-theme-bg-color, #ffffff);
             --text: var(--tg-theme-text-color, #000000);
             --hint: var(--tg-theme-hint-color, #999999);
             --btn: var(--tg-theme-button-color, #3390ec);
-            --btn-text: var(--tg-theme-button-text-color, #ffffff);
             --border: var(--tg-theme-secondary-bg-color, #efeff3);
         }
 
@@ -28,7 +24,6 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* Панель инструментов */
         .toolbar {
             display: flex; overflow-x: auto; padding: 10px 12px;
             background: var(--bg); border-bottom: 1px solid var(--border);
@@ -45,10 +40,12 @@
         }
         .tool-btn:active { background: var(--border); }
         .tool-btn.with-text { font-size: 16px; font-weight: 500; gap: 6px; background: var(--border); }
+        
+        /* ВАЖНО: Делаем так, чтобы клик приходился на саму кнопку, а не на иконку внутри нее */
+        .tool-btn * { pointer-events: none; }
 
         .divider { width: 1px; height: 24px; background: var(--hint); opacity: 0.3; margin: 0 4px; flex-shrink: 0; }
 
-        /* Выпадающее меню таблицы */
         .tool-dropdown { position: relative; display: flex; }
         .table-popover {
             position: absolute; top: calc(100% + 5px); left: 0;
@@ -59,56 +56,41 @@
         }
         .table-popover.show { display: flex; }
         
-        .grid-container {
-            display: grid; grid-template-columns: repeat(8, 22px); gap: 3px;
-            touch-action: none; /* Чтобы экран не скроллился при свайпе таблицы */
-        }
-        
-        .grid-cell {
-            width: 22px; height: 22px; border: 1px solid var(--hint);
-            border-radius: 3px; box-sizing: border-box; transition: 0.05s;
-        }
+        .grid-container { display: grid; grid-template-columns: repeat(8, 22px); gap: 3px; touch-action: none; }
+        .grid-cell { width: 22px; height: 22px; border: 1px solid var(--hint); border-radius: 3px; transition: 0.05s; }
         .grid-cell.active { background: var(--btn); border-color: var(--btn); opacity: 0.8; }
-        
         .grid-status { margin-top: 10px; font-size: 14px; font-weight: bold; color: var(--text); }
 
-        /* Само поле для текста */
         .editor-container {
             flex: 1; overflow-y: auto; padding: 20px;
-            font-size: 17px; line-height: 1.5; outline: none;
-            color: var(--text);
+            font-size: 17px; line-height: 1.5; outline: none; color: var(--text);
         }
-        .editor-container[placeholder]:empty:before {
-            content: attr(placeholder); color: var(--hint); pointer-events: none;
-        }
+        .editor-container[placeholder]:empty:before { content: attr(placeholder); color: var(--hint); pointer-events: none; }
 
-        /* Исправленные стили для таблиц внутри редактора */
         table { width: 100%; border-collapse: collapse; margin: 15px 0; background: var(--bg); color: var(--text); }
         td, th { border: 1px solid var(--hint); padding: 10px; text-align: left; color: var(--text); }
         th { background: var(--border); font-weight: bold; }
-        blockquote { border-left: 4px solid var(--btn); margin: 10px 0; padding-left: 15px; color: var(--hint); font-style: italic; }
         pre { background: var(--border); padding: 12px; border-radius: 8px; font-family: monospace; overflow-x: auto; color: var(--text); }
     </style>
 </head>
 <body>
 
     <div class="toolbar" id="toolbar">
-        <button class="tool-btn" onclick="format('bold')"><i class="ph ph-text-b"></i></button>
-        <button class="tool-btn" onclick="format('italic')"><i class="ph ph-text-italic"></i></button>
-        <button class="tool-btn" onclick="format('underline')"><i class="ph ph-text-underline"></i></button>
-        <button class="tool-btn" onclick="format('strikeThrough')"><i class="ph ph-text-strikethrough"></i></button>
+        <button class="tool-btn action-btn" data-cmd="bold"><i class="ph ph-text-b"></i></button>
+        <button class="tool-btn action-btn" data-cmd="italic"><i class="ph ph-text-italic"></i></button>
+        <button class="tool-btn action-btn" data-cmd="underline"><i class="ph ph-text-underline"></i></button>
+        <button class="tool-btn action-btn" data-cmd="strikeThrough"><i class="ph ph-text-strikethrough"></i></button>
         
         <div class="divider"></div>
         
-        <button class="tool-btn" onclick="formatBlock('H1')"><i class="ph ph-text-h-one"></i></button>
-        <button class="tool-btn" onclick="formatBlock('H2')"><i class="ph ph-text-h-two"></i></button>
-        <button class="tool-btn" onclick="format('insertUnorderedList')"><i class="ph ph-list-bullets"></i></button>
+        <button class="tool-btn action-btn" data-block="H1"><i class="ph ph-text-h-one"></i></button>
+        <button class="tool-btn action-btn" data-block="H2"><i class="ph ph-text-h-two"></i></button>
+        <button class="tool-btn action-btn" data-cmd="insertUnorderedList"><i class="ph ph-list-bullets"></i></button>
         
         <div class="divider"></div>
         
-        <!-- Кнопка таблицы с выпадающим меню -->
         <div class="tool-dropdown">
-            <button class="tool-btn with-text" onclick="toggleTablePopover(event)">
+            <button class="tool-btn with-text" id="btn-table">
                 <i class="ph ph-table"></i> Таблица
             </button>
             <div class="table-popover" id="table-popover">
@@ -117,13 +99,18 @@
             </div>
         </div>
 
-        <button class="tool-btn with-text" onclick="formatBlock('PRE')"><i class="ph ph-code"></i> Код</button>
+        <button class="tool-btn with-text action-btn" data-block="PRE"><i class="ph ph-code"></i> Код</button>
     </div>
 
-    <!-- Область редактирования -->
     <div class="editor-container" id="editor" contenteditable="true" placeholder="Начни печатать тут..."></div>
 
     <script>
+        // ЕСЛИ ЧТО-ТО СЛОМАЕТСЯ, БРАУЗЕР ВЫДАСТ НАМ ОШИБКУ НА ЭКРАН!
+        window.onerror = function(msg, url, line) {
+            alert("Ошибка скрипта: " + msg + " (строка " + line + ")");
+            return false;
+        };
+
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
@@ -132,36 +119,32 @@
         const mainButton = tg.MainButton;
         mainButton.setText("ОТПРАВИТЬ ПОСТ");
 
-        // Показываем кнопку, если есть контент
-        editor.addEventListener('input', () => {
-            if (editor.textContent.trim().length > 0 || editor.innerHTML.includes('<table')) {
-                if (!mainButton.isVisible) mainButton.show();
-            } else {
-                if (mainButton.isVisible) mainButton.hide();
-            }
+        // 1. ВАЖНО: Запрещаем кнопкам отбирать фокус у текста!
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('mousedown', function(e) {
+                e.preventDefault(); // Останавливает потерю фокуса
+            });
         });
 
-        function format(command) {
-            document.execCommand(command, false, null);
-            editor.focus();
-        }
+        // 2. Обработка кнопок форматирования
+        document.querySelectorAll('.action-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (this.dataset.cmd) {
+                    document.execCommand(this.dataset.cmd, false, null);
+                } else if (this.dataset.block) {
+                    document.execCommand('formatBlock', false, this.dataset.block);
+                }
+            });
+        });
 
-        function formatBlock(tag) {
-            document.execCommand('formatBlock', false, tag);
-            editor.focus();
-        }
-
-        // ==========================================
-        // МАГИЯ ДЛЯ ТАБЛИЦЫ (СЕТКА КАК В WORD)
-        // ==========================================
-        const MAX_ROWS = 8;
-        const MAX_COLS = 8;
+        // 3. Логика таблицы
+        const MAX_ROWS = 8, MAX_COLS = 8;
         const gridCont = document.getElementById('grid-container');
         const popover = document.getElementById('table-popover');
         const statusText = document.getElementById('grid-status');
+        const btnTable = document.getElementById('btn-table');
         let selRow = 0, selCol = 0;
 
-        // 1. Рисуем сетку квадратиков
         for (let r = 1; r <= MAX_ROWS; r++) {
             for (let c = 1; c <= MAX_COLS; c++) {
                 let cell = document.createElement('div');
@@ -172,21 +155,15 @@
             }
         }
 
-        // 2. Открыть/Закрыть меню
-        function toggleTablePopover(e) {
-            e.stopPropagation();
+        btnTable.addEventListener('click', () => {
             popover.classList.toggle('show');
             if(popover.classList.contains('show')) updateGrid(0, 0);
-        }
-
-        // Закрываем меню при клике мимо
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.tool-dropdown')) {
-                popover.classList.remove('show');
-            }
         });
 
-        // 3. Обновление цвета квадратиков
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.tool-dropdown')) popover.classList.remove('show');
+        });
+
         function updateGrid(r, c) {
             selRow = r; selCol = c;
             statusText.textContent = (r > 0 && c > 0) ? `${c} x ${r}` : 'Выберите размер';
@@ -200,70 +177,65 @@
             });
         }
 
-        // 4. Логика для мышки (Компьютер)
         gridCont.addEventListener('mouseover', (e) => {
             if (e.target.classList.contains('grid-cell')) {
                 updateGrid(parseInt(e.target.dataset.r), parseInt(e.target.dataset.c));
             }
         });
 
-        // 5. Логика для свайпа пальцем (Телефон)
         gridCont.addEventListener('touchmove', (e) => {
-            e.preventDefault(); // Запрещаем скролл экрана
+            e.preventDefault(); 
             let touch = e.touches[0];
             let element = document.elementFromPoint(touch.clientX, touch.clientY);
-            
             if (element && element.classList.contains('grid-cell')) {
                 updateGrid(parseInt(element.dataset.r), parseInt(element.dataset.c));
             }
         });
 
-        // 6. Подтверждение выбора (Вставка таблицы)
         function finalizeGrid(e) {
             e.preventDefault();
             if (selRow > 0 && selCol > 0) {
-                insertDynamicTable(selRow, selCol);
+                let html = '<br><table style="width:100%; border-collapse: collapse; margin: 15px 0;"><tbody>';
+                for (let r = 0; r < selRow; r++) {
+                    html += '<tr>';
+                    for (let c = 0; c < selCol; c++) {
+                        if (r === 0) {
+                            html += `<th style="border: 1px solid var(--hint); padding: 10px; background: var(--border);">Заголовок</th>`;
+                        } else {
+                            html += `<td style="border: 1px solid var(--hint); padding: 10px;">Ячейка</td>`;
+                        }
+                    }
+                    html += '</tr>';
+                }
+                html += '</tbody></table><p><br></p>';
+                
+                document.execCommand('insertHTML', false, html);
                 popover.classList.remove('show');
+                checkContent();
             }
         }
 
         gridCont.addEventListener('click', finalizeGrid);
         gridCont.addEventListener('touchend', finalizeGrid);
 
-        // 7. Функция генерации HTML таблицы
-        function insertDynamicTable(rows, cols) {
-            let html = '<br><table style="width:100%; border-collapse: collapse; margin: 15px 0;"><tbody>';
-            for (let r = 0; r < rows; r++) {
-                html += '<tr>';
-                for (let c = 0; c < cols; c++) {
-                    if (r === 0) {
-                        html += `<th style="border: 1px solid var(--hint); padding: 10px; background: var(--border);">Заголовок</th>`;
-                    } else {
-                        html += `<td style="border: 1px solid var(--hint); padding: 10px;">Ячейка</td>`;
-                    }
-                }
-                html += '</tr>';
+        // 4. Логика кнопки отправки
+        function checkContent() {
+            if (editor.textContent.trim().length > 0 || editor.innerHTML.includes('<table')) {
+                if (!mainButton.isVisible) mainButton.show();
+            } else {
+                if (mainButton.isVisible) mainButton.hide();
             }
-            html += '</tbody></table><p><br></p>';
-            
-            document.execCommand('insertHTML', false, html);
-            editor.focus();
-            
-            // Заставляем кнопку "Отправить" появиться
-            if (!mainButton.isVisible) mainButton.show();
         }
 
-        // ==========================================
-        // ОТПРАВКА ДАННЫХ В БОТА
-        // ==========================================
-        mainButton.onClick(() => {
-            tg.HapticFeedback.notificationOccurred('success');
-            const finalHTML = editor.innerHTML;
+        editor.addEventListener('input', checkContent);
 
+        mainButton.onClick(() => {
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            const finalHTML = editor.innerHTML;
             try {
                 tg.sendData(finalHTML);
             } catch(e) {
-                tg.showAlert("Ошибка: Откройте бота через клавиатуру.");
+                alert("Ошибка отправки: " + e.message);
             }
         });
     </script>
