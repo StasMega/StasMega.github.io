@@ -222,4 +222,50 @@
         function finalizeGrid(e) {
             e.preventDefault();
             if (selRow > 0 && selCol > 0) {
-                insertDynamicTable(selRow
+                insertDynamicTable(selRow, selCol);
+                popover.classList.remove('show');
+            }
+        }
+
+        gridCont.addEventListener('click', finalizeGrid);
+        gridCont.addEventListener('touchend', finalizeGrid);
+
+        // 7. Функция генерации HTML таблицы
+        function insertDynamicTable(rows, cols) {
+            let html = '<br><table style="width:100%; border-collapse: collapse; margin: 15px 0;"><tbody>';
+            for (let r = 0; r < rows; r++) {
+                html += '<tr>';
+                for (let c = 0; c < cols; c++) {
+                    if (r === 0) {
+                        html += `<th style="border: 1px solid var(--hint); padding: 10px; background: var(--border);">Заголовок</th>`;
+                    } else {
+                        html += `<td style="border: 1px solid var(--hint); padding: 10px;">Ячейка</td>`;
+                    }
+                }
+                html += '</tr>';
+            }
+            html += '</tbody></table><p><br></p>';
+            
+            document.execCommand('insertHTML', false, html);
+            editor.focus();
+            
+            // Заставляем кнопку "Отправить" появиться
+            if (!mainButton.isVisible) mainButton.show();
+        }
+
+        // ==========================================
+        // ОТПРАВКА ДАННЫХ В БОТА
+        // ==========================================
+        mainButton.onClick(() => {
+            tg.HapticFeedback.notificationOccurred('success');
+            const finalHTML = editor.innerHTML;
+
+            try {
+                tg.sendData(finalHTML);
+            } catch(e) {
+                tg.showAlert("Ошибка: Откройте бота через клавиатуру.");
+            }
+        });
+    </script>
+</body>
+</html>
