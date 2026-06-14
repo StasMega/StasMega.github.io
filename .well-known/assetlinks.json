@@ -1,0 +1,9 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.stasmega.strada",
+    "sha256_cert_fingerprints":
+    ["83:C4:AD:F9:A8:F1:2C:7F:E0:DA:82:CC:85:B9:DF:76:9F:D4:67:B3:2C:B5:E7:4B:58:EF:A3:1D:49:05:DD:9C"]
+  }
+}]
